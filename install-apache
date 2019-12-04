@@ -1,0 +1,56 @@
+#!/bin/bash
+
+usage() {
+  echo "Usage: ${0} HOST [HOSTN...]" >&2
+  exit 1
+}
+
+if [[ "${UID}" -eq 0 ]]
+then
+  echo 'Do not execute this script as root.' >&2
+  usage
+fi
+
+if [[ "${#}" -lt 1 ]]
+then
+  usage
+fi
+
+EXIT_STATUS='0'
+
+for SERVER in "${@}"
+do
+  echo "Starting installation process on: ${SERVER}"
+
+  ping -c 1 ${SERVER} &> /dev/null
+
+  if [[ "${?}" -ne 0 ]]
+  then
+    echo "${SERVER} down."
+    EXIT_STATUS='1'
+    continue
+  fi
+
+ssh ${SERVER} sudo yum install -y httpd
+ssh ${SERVER} 'echo "${HOSTNAME}" | sudo tee /var/www/html/index.html >/dev/null'
+
+  ssh ${SERVER} sudo systemctl start httpd
+
+
+  ssh ${SERVER} sudo systemctl enable httpd
+
+
+  curl http://${SERVER}
+
+  if [[ "${?}" -ne 0 ]]
+  then
+    echo "Could not access the web server on ${SERVER}." >&2
+    EXIT_STATUS='1'
+    continue
+  fi
+
+  echo "Finished installation process on: ${SERVER}"
+done
+
+exit ${EXIT_STATUS}
+
